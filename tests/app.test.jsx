@@ -63,6 +63,45 @@ describe("App", () => {
     expect(card).toHaveFocus();
   });
 
+  it("steps between chapters with the buttons and the arrow keys (wrapping around the year)", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.click(screen.getByRole("button", { name: "Chapters" }));
+    await user.click(screen.getByRole("button", { name: /^Open January/ }));
+    expect(screen.getByRole("dialog", { name: "January" })).toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: /February/ }));
+    expect(screen.getByRole("dialog", { name: "February" })).toBeInTheDocument();
+
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(screen.getByRole("dialog", { name: "December" })).toBeInTheDocument();
+
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("dialog", { name: "January" })).toBeInTheDocument();
+  });
+
+  it("copies the month as a text receipt and announces it", async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.click(screen.getByRole("button", { name: "Chapters" }));
+    await user.click(screen.getByRole("button", { name: /^Open March/ }));
+
+    let copied = "";
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: (t) => {
+          copied = t;
+          return Promise.resolve();
+        },
+      },
+      configurable: true,
+    });
+    await user.click(screen.getByRole("button", { name: "Copy as text" }));
+    await waitFor(() => expect(screen.getAllByText(/March receipt copied/i).length).toBeGreaterThan(0));
+    expect(copied).toContain("MARCH");
+    expect(copied).toContain("YOUR LIFE, IN RECEIPTS");
+  });
+
   it("defining-day cards on Connections are real buttons that open the dialog", async () => {
     const user = userEvent.setup();
     await renderApp();

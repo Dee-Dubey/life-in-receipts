@@ -1,8 +1,6 @@
 import { useDeferredValue, useMemo, useState } from "react";
-import { MONTH_NAMES } from "../lib/csv.js";
+import { MONTH_NAMES, SEARCH_RESULT_CAP as CAP } from "../lib/constants.js";
 import { fmtINR } from "../lib/model.js";
-
-const CAP = 150;
 
 export default function SearchView({ flatTxns, flatSongs }) {
   const [query, setQuery] = useState("");
@@ -24,7 +22,7 @@ export default function SearchView({ flatTxns, flatSongs }) {
         month: t.month,
         hay: `${t.category} ${t.subcategory} ${t.note}`.toLowerCase(),
         sortKey: t.date ? t.date.getTime() : 0,
-      })
+      }),
     );
     flatSongs.forEach((s) =>
       all.push({
@@ -33,7 +31,7 @@ export default function SearchView({ flatTxns, flatSongs }) {
         month: s.month,
         hay: `${s.track} ${s.artist} ${s.album}`.toLowerCase(),
         sortKey: s.ts ? s.ts.getTime() : 0,
-      })
+      }),
     );
     all.sort((a, b) => b.sortKey - a.sortKey);
     return all;
@@ -111,7 +109,10 @@ export default function SearchView({ flatTxns, flatSongs }) {
           <>
             <ul className="list-none m-0 p-0">
               {results.slice(0, CAP).map((r, i) => (
-                <li key={i} className="flex gap-3 items-baseline px-4 py-2.5 border-b border-line text-sm last:border-b-0">
+                <li
+                  key={i}
+                  className="flex gap-3 items-baseline px-4 py-2.5 border-b border-line text-sm last:border-b-0"
+                >
                   {r.kind === "txn" ? (
                     <>
                       <span className="font-mono text-[0.68rem] px-1.5 py-0.5 rounded bg-paperDark text-inkSoft whitespace-nowrap">
@@ -142,7 +143,8 @@ export default function SearchView({ flatTxns, flatSongs }) {
             </ul>
             {results.length > CAP && (
               <div className="p-4 text-center text-inkSoft text-xs bg-paperDark">
-                Showing {CAP} of {results.length.toLocaleString("en-IN")} matches — refine your search to narrow it down.
+                Showing {CAP} of {results.length.toLocaleString("en-IN")} matches — refine your search to narrow it
+                down.
               </div>
             )}
           </>

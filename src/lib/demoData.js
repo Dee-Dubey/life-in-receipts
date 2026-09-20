@@ -1,5 +1,3 @@
-import { CATEGORY_MOOD } from "./csv.js";
-
 // NOTE: this is entirely made-up placeholder data, generated in the browser,
 // so the UI is never empty before you upload your own CSVs. None of it comes
 // from a real Kaggle file.
@@ -63,7 +61,6 @@ export function generateDemoData(seed = 2018) {
         note: "",
         amount,
         type: "Expense",
-        mood: CATEGORY_MOOD[c.category.toLowerCase()] || "Routine",
       });
     }
 
@@ -82,7 +79,6 @@ export function generateDemoData(seed = 2018) {
         album: "",
         msPlayed: ms,
         skipped: ms < 60000,
-        reasonEnd: ms < 60000 ? "nextbtn" : "trackdone",
       });
     }
   }

@@ -5,9 +5,7 @@ import ChaptersView from "./components/ChaptersView.jsx";
 import SearchView from "./components/SearchView.jsx";
 import ConnectionsView from "./components/ConnectionsView.jsx";
 import ChapterModal from "./components/ChapterModal.jsx";
-import { parseHouseholdCSV, parseSpotifyCSV } from "./lib/csv.js";
-import { generateDemoData } from "./lib/demoData.js";
-import { loadBundledData } from "./lib/dataSource.js";
+import { useDataset } from "./hooks/useDataset.js";
 import { buildModel } from "./lib/model.js";
 
 const VIEW_TITLES = {
@@ -19,90 +17,18 @@ const VIEW_TITLES = {
 
 export default function App() {
   const [view, setView] = useState("home");
-  const [household, setHousehold] = useState([]);
-  const [spotify, setSpotify] = useState([]);
-  const [source, setSource] = useState("demo"); // "bundled" | "upload" | "demo"
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("Loading data…");
   const [activeMonth, setActiveMonth] = useState(null);
+  const { household, spotify, source, loading, status, loadSample, loadFiles } = useDataset();
 
   const months = useMemo(() => buildModel(household, spotify), [household, spotify]);
-
-  // On start-up: use the organizer CSVs from /public/data if they exist, otherwise fall back to sample data.
-  useEffect(() => {
-    let cancelled = false;
-    loadBundledData().then((bundled) => {
-      if (cancelled) return;
-      if (bundled) {
-        setHousehold(bundled.household);
-        setSpotify(bundled.spotify);
-        setSource("bundled");
-        setStatus(
-          `Loaded ${bundled.household.length.toLocaleString("en-IN")} purchases and ${bundled.spotify.length.toLocaleString(
-            "en-IN"
-          )} tracks from the challenge dataset.`
-        );
-      } else {
-        const d = generateDemoData();
-        setHousehold(d.household);
-        setSpotify(d.spotify);
-        setSource("demo");
-        setStatus("No dataset found in /public/data — showing generated sample data. Upload your CSVs any time.");
-      }
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     document.title = VIEW_TITLES[view] || VIEW_TITLES.home;
   }, [view]);
 
   const closeModal = useCallback(() => setActiveMonth(null), []);
-
-  function loadDemo() {
-    const d = generateDemoData();
-    setHousehold(d.household);
-    setSpotify(d.spotify);
-    setSource("demo");
-    setStatus("Sample data loaded.");
-  }
-
-  async function buildFromFiles(hFile, sFile) {
-    if (!hFile && !sFile) {
-      setStatus("Choose at least one CSV file first, or use sample data.");
-      return;
-    }
-    setLoading(true);
-    setStatus("Reading files…");
-    try {
-      const [hText, sText] = await Promise.all([hFile ? hFile.text() : null, sFile ? sFile.text() : null]);
-      const h = hText !== null ? parseHouseholdCSV(hText) : null;
-      const s = sText !== null ? parseSpotifyCSV(sText) : null;
-
-      // Refuse to wipe the current data if a chosen file produced no usable rows.
-      if ((h && !h.length) || (s && !s.length)) {
-        const bad = h && !h.length ? "household file" : "Spotify file";
-        setStatus(`No usable rows found in the ${bad}. Check the header row and column names (see README).`);
-        return;
-      }
-      if (h) setHousehold(h);
-      if (s) setSpotify(s);
-      setSource("upload");
-      setStatus(
-        `Story rebuilt from your files: ${(h ? h.length : household.length).toLocaleString("en-IN")} purchases, ${(s
-          ? s.length
-          : spotify.length
-        ).toLocaleString("en-IN")} tracks.`
-      );
-    } catch {
-      setStatus("Could not read that file. Make sure it is a plain .csv and try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const showPrevMonth = useCallback(() => setActiveMonth((i) => (i + 11) % 12), []);
+  const showNextMonth = useCallback(() => setActiveMonth((i) => (i + 1) % 12), []);
 
   return (
     <div className="min-h-screen bg-canvas text-ink">
@@ -122,8 +48,8 @@ export default function App() {
             status={status}
             source={source}
             loading={loading}
-            onBuildFromFiles={buildFromFiles}
-            onLoadDemo={loadDemo}
+            onBuildFromFiles={loadFiles}
+            onLoadDemo={loadSample}
           />
         )}
         {view === "chapters" && <ChaptersView months={months} onOpenMonth={setActiveMonth} />}
@@ -134,12 +60,14 @@ export default function App() {
       </main>
       <footer className="border-t border-line py-6 text-inkSoft text-sm">
         <div className="max-w-4xl mx-auto px-5">
-          Built for the &ldquo;Your Life, In Receipts&rdquo; hackathon problem · frontend-only, no backend, runs entirely in your
-          browser.
+          Built for the &ldquo;Your Life, In Receipts&rdquo; hackathon problem · frontend-only, no backend, runs
+          entirely in your browser.
         </div>
       </footer>
 
-      {activeMonth !== null && <ChapterModal month={months[activeMonth]} onClose={closeModal} />}
+      {activeMonth !== null && (
+        <ChapterModal month={months[activeMonth]} onClose={closeModal} onPrev={showPrevMonth} onNext={showNextMonth} />
+      )}
     </div>
   );
 }

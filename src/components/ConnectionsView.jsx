@@ -14,15 +14,15 @@ export default function ConnectionsView({ months, flatTxns, flatSongs, onOpenMon
     corrText = "Load more data to compute a meaningful correlation.";
   } else if (r > 0.35) {
     corrText = `Months with higher spending also tend to have more late-night listening (r = ${r.toFixed(
-      2
+      2,
     )}). Money and midnight seem to move together.`;
   } else if (r < -0.35) {
     corrText = `Months with higher spending tend to have less late-night listening (r = ${r.toFixed(
-      2
+      2,
     )}) — the busy, high-spend months look like early-to-bed months.`;
   } else {
     corrText = `No strong link between monthly spend and late-night listening this year (r = ${r.toFixed(
-      2
+      2,
     )}) — the two rhythms move mostly on their own.`;
   }
 
@@ -81,7 +81,8 @@ export default function ConnectionsView({ months, flatTxns, flatSongs, onOpenMon
 
         <div className="flex flex-wrap gap-x-4.5 gap-y-1 text-xs text-inkSoft mt-2.5">
           <span className="inline-flex items-center gap-1.5">
-            <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampBlue" aria-hidden="true" /> monthly spend (left bar)
+            <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampBlue" aria-hidden="true" /> monthly spend (left
+            bar)
           </span>
           <span className="inline-flex items-center gap-1.5">
             <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampRed" aria-hidden="true" /> late-night listening

@@ -7,7 +7,16 @@ const SOURCE_LABEL = {
   demo: "Generated sample data",
 };
 
-export default function HomeView({ months, flatTxns, flatSongs, status, source, loading, onBuildFromFiles, onLoadDemo }) {
+export default function HomeView({
+  months,
+  flatTxns,
+  flatSongs,
+  status,
+  source,
+  loading,
+  onBuildFromFiles,
+  onLoadDemo,
+}) {
   const householdRef = useRef(null);
   const spotifyRef = useRef(null);
 
@@ -30,9 +39,9 @@ export default function HomeView({ months, flatTxns, flatSongs, status, source, 
           Two receipts don&rsquo;t tell you much. Twelve months of them do.
         </h1>
         <p className="max-w-[56ch] text-inkSoft text-[1.05rem] mb-6">
-          This reads a year of household spending and a year of Spotify streams side by side — not as two
-          spreadsheets, but as twelve chapters of one life. Every month gets its own receipt: what was bought, what was
-          played, and the one day the two lined up.
+          This reads a year of household spending and a year of Spotify streams side by side — not as two spreadsheets,
+          but as twelve chapters of one life. Every month gets its own receipt: what was bought, what was played, and
+          the one day the two lined up.
         </p>
       </div>
 
@@ -104,8 +113,8 @@ export default function HomeView({ months, flatTxns, flatSongs, status, source, 
           Real dates rarely line up across two unrelated datasets, so instead of forcing a false day-by-day match, every
           record here is grouped by <b className="text-ink">month of the year</b> — all Septembers together, all Julys
           together — the way a life actually repeats itself. Inside each month, the single busiest day (by combined
-          activity) becomes that chapter&rsquo;s &ldquo;defining day&rdquo;: the closest thing to a moment where a purchase and a song
-          actually happened together.
+          activity) becomes that chapter&rsquo;s &ldquo;defining day&rdquo;: the closest thing to a moment where a
+          purchase and a song actually happened together.
         </p>
       </div>
     </section>

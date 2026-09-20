@@ -1,24 +1,15 @@
-export const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
+import { SKIP_THRESHOLD_MS } from "./constants.js";
 
-export const CATEGORY_MOOD = {
-  food: "Comfort",
-  transportation: "Motion",
-  subscription: "Cozy",
-  festivals: "Celebration",
-  family: "Connection",
-  apparel: "Care",
-  fitness_and_medical: "Care",
-  entertainment: "Cozy",
-  travel: "Motion",
-  other: "Routine",
-};
+/** @typedef {import("./types.js").Transaction} Transaction */
+/** @typedef {import("./types.js").Song} Song */
 
-// Minimal RFC4180-ish CSV parser: handles quoted fields and embedded commas.
+/**
+ * Minimal RFC 4180-style CSV parser: quoted fields, embedded commas/newlines, escaped quotes, CRLF and a
+ * leading UTF-8 BOM (which Excel/Kaggle exports often add and which would otherwise corrupt the first header).
+ * @param {string} input raw file text
+ * @returns {string[][]} rows of cells; blank lines are dropped
+ */
 export function parseCSV(input) {
-  // Excel / Kaggle exports often start with a BOM, which would corrupt the first header name.
   const text = String(input || "").replace(/^\uFEFF/, "");
   const rows = [];
   let row = [];
@@ -48,9 +39,7 @@ export function parseCSV(input) {
       rows.push(row);
       row = [];
       field = "";
-    } else if (c === "\r") {
-      // skip
-    } else {
+    } else if (c !== "\r") {
       field += c;
     }
   }
@@ -61,6 +50,7 @@ export function parseCSV(input) {
   return rows.filter((r) => r.length > 1 || (r.length === 1 && r[0].trim() !== ""));
 }
 
+/** Index of the first header that matches any of `names`, or -1. */
 function colIndex(header, names) {
   for (const n of names) {
     const idx = header.indexOf(n);
@@ -69,46 +59,40 @@ function colIndex(header, names) {
   return -1;
 }
 
-// "20/09/2018 12:04:08" (day-month-year, as used by the household dataset)
-export function parseDMY(str) {
-  if (!str) return null;
-  const [datePart, timePart] = str.trim().split(" ");
-  const d = datePart.split("/");
-  if (d.length < 3) return null;
-  const day = parseInt(d[0], 10);
-  const mon = parseInt(d[1], 10);
-  const yr = parseInt(d[2], 10);
-  if (!day || !mon || !yr) return null;
-  let hh = 0, mm = 0, ss = 0;
-  if (timePart) {
-    const t = timePart.split(":");
-    hh = parseInt(t[0], 10) || 0;
-    mm = parseInt(t[1], 10) || 0;
-    ss = parseInt(t[2], 10) || 0;
-  }
-  return new Date(yr, mon - 1, day, hh, mm, ss);
+/** Trimmed cell value, or `fallback` when the column is absent or empty. */
+function cell(row, index, fallback = "") {
+  return index >= 0 ? (row[index] || fallback).trim() : fallback;
 }
 
-// "7/8/2013 2:44" (month-day-year, as used by the Spotify dataset)
-export function parseMDY(str) {
-  if (!str) return null;
-  const [datePart, timePart] = str.trim().split(" ");
-  const d = datePart.split("/");
-  if (d.length < 3) return null;
-  const mon = parseInt(d[0], 10);
-  const day = parseInt(d[1], 10);
-  const yr = parseInt(d[2], 10);
-  if (!day || !mon || !yr) return null;
-  let hh = 0, mm = 0;
-  if (timePart) {
-    const t = timePart.split(":");
-    hh = parseInt(t[0], 10) || 0;
-    mm = parseInt(t[1], 10) || 0;
-  }
-  return new Date(yr, mon - 1, day, hh, mm, 0);
+/** Lower-cased, trimmed header row. */
+function readHeader(rows) {
+  return rows[0].map((h) => h.trim().toLowerCase());
 }
 
-// "2013-07-08 02:44:34" or "2013-07-08T02:44:34Z" (ISO-like, used by some Spotify exports)
+/**
+ * Parses "A/B/YYYY [HH:MM[:SS]]". `dayFirst` says whether A is the day (DD/MM) or the month (MM/DD).
+ * @returns {Date|null} null when the text is not a usable date
+ */
+function parseSlashDate(str, dayFirst) {
+  if (!str) return null;
+  const [datePart, timePart] = str.trim().split(" ");
+  const parts = datePart.split("/");
+  if (parts.length < 3) return null;
+  const [first, second, year] = parts.map((p) => parseInt(p, 10));
+  const day = dayFirst ? first : second;
+  const month = dayFirst ? second : first;
+  if (!day || !month || !year) return null;
+  const [hh = 0, mm = 0, ss = 0] = timePart ? timePart.split(":").map((p) => parseInt(p, 10) || 0) : [];
+  return new Date(year, month - 1, day, hh, mm, ss);
+}
+
+/** "20/09/2018 12:04:08" — day-month-year, as in the household dataset. */
+export const parseDMY = (str) => parseSlashDate(str, true);
+
+/** "7/8/2013 2:44" — month-day-year, as in the Spotify dataset. */
+export const parseMDY = (str) => parseSlashDate(str, false);
+
+/** "2013-07-08 02:44:34" or "2013-07-08T02:44:34Z" — ISO-like, used by some Spotify exports. */
 export function parseISO(str) {
   if (!str) return null;
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(str.trim());
@@ -118,16 +102,22 @@ export function parseISO(str) {
   return new Date(Number(yr), Number(mon) - 1, Number(day), Number(hh), Number(mm), Number(ss));
 }
 
-// Spotify timestamps can be "M/D/YYYY H:MM" or ISO — accept both.
+/** Spotify timestamps can be "M/D/YYYY H:MM" or ISO — accept both. */
 export function parseSpotifyDate(str) {
   if (!str) return null;
   return /^\d{4}-/.test(str.trim()) ? parseISO(str) : parseMDY(str);
 }
 
+/**
+ * Household transactions → normalised records. Rows without a numeric amount are skipped.
+ * Column names are matched case-insensitively; missing optional columns are tolerated.
+ * @param {string} text raw CSV text
+ * @returns {Transaction[]}
+ */
 export function parseHouseholdCSV(text) {
   const rows = parseCSV(text);
   if (!rows.length) return [];
-  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const header = readHeader(rows);
   const iDate = colIndex(header, ["date"]);
   const iCategory = colIndex(header, ["category"]);
   const iSub = colIndex(header, ["subcategory"]);
@@ -136,57 +126,57 @@ export function parseHouseholdCSV(text) {
   const iType = colIndex(header, ["income/expense", "type"]);
 
   const out = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    if (!row || row.length < 2) continue;
-    const date = iDate >= 0 ? parseDMY(row[iDate]) : null;
+  for (const row of rows.slice(1)) {
+    if (row.length < 2) continue;
     const amount = iAmount >= 0 ? parseFloat(row[iAmount]) : NaN;
-    if (isNaN(amount)) continue;
-    let category = (iCategory >= 0 ? row[iCategory] : "Other") || "Other";
-    category = category.trim() || "Other";
+    if (Number.isNaN(amount)) continue;
+    const date = iDate >= 0 ? parseDMY(row[iDate]) : null;
     out.push({
       date,
       month: date ? date.getMonth() : null,
-      category,
-      subcategory: iSub >= 0 ? (row[iSub] || "").trim() : "",
-      note: iNote >= 0 ? (row[iNote] || "").trim() : "",
+      category: cell(row, iCategory, "Other") || "Other",
+      subcategory: cell(row, iSub),
+      note: cell(row, iNote),
       amount: Math.abs(amount),
-      type: iType >= 0 ? (row[iType] || "Expense").trim() : "Expense",
-      mood: CATEGORY_MOOD[category.toLowerCase()] || "Routine",
+      type: cell(row, iType, "Expense"),
     });
   }
   return out;
 }
 
+/**
+ * Spotify history → normalised records. Rows without a track name are skipped.
+ * `skipped` comes from the CSV when present, otherwise it is inferred from how long the track played.
+ * @param {string} text raw CSV text
+ * @returns {Song[]}
+ */
 export function parseSpotifyCSV(text) {
   const rows = parseCSV(text);
   if (!rows.length) return [];
-  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const header = readHeader(rows);
   const iTs = colIndex(header, ["ts"]);
   const iTrack = colIndex(header, ["track_name", "track"]);
   const iArtist = colIndex(header, ["artist_name", "artist"]);
   const iAlbum = colIndex(header, ["album_name", "album"]);
   const iMs = colIndex(header, ["ms_played"]);
   const iSkip = colIndex(header, ["skipped"]);
-  const iReasonEnd = colIndex(header, ["reason_end"]);
 
   const out = [];
-  for (let r = 1; r < rows.length; r++) {
-    const row = rows[r];
-    if (!row || row.length < 2) continue;
-    const ts = iTs >= 0 ? parseSpotifyDate(row[iTs]) : null;
-    const track = iTrack >= 0 ? (row[iTrack] || "").trim() : "";
+  for (const row of rows.slice(1)) {
+    if (row.length < 2) continue;
+    const track = cell(row, iTrack);
     if (!track) continue;
+    const ts = iTs >= 0 ? parseSpotifyDate(row[iTs]) : null;
     const ms = iMs >= 0 ? parseFloat(row[iMs]) : 0;
+    const msPlayed = Number.isNaN(ms) ? 0 : ms;
     out.push({
       ts,
       month: ts ? ts.getMonth() : null,
       track,
-      artist: iArtist >= 0 ? (row[iArtist] || "Unknown Artist").trim() : "Unknown Artist",
-      album: iAlbum >= 0 ? (row[iAlbum] || "").trim() : "",
-      msPlayed: isNaN(ms) ? 0 : ms,
-      skipped: iSkip >= 0 ? /true/i.test(row[iSkip]) : (isNaN(ms) ? false : ms < 30000),
-      reasonEnd: iReasonEnd >= 0 ? (row[iReasonEnd] || "").trim() : "",
+      artist: cell(row, iArtist, "Unknown Artist"),
+      album: cell(row, iAlbum),
+      msPlayed,
+      skipped: iSkip >= 0 ? /true/i.test(row[iSkip]) : msPlayed < SKIP_THRESHOLD_MS,
     });
   }
   return out;

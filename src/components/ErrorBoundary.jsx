@@ -17,8 +17,8 @@ export default class ErrorBoundary extends Component {
       <div role="alert" className="max-w-xl mx-auto mt-16 p-6 bg-paper border border-lineStrong rounded-md">
         <h1 className="font-serif text-2xl mb-2">Something went wrong</h1>
         <p className="text-inkSoft mb-4">
-          The page hit an unexpected error. Reloading usually fixes it; if you uploaded a CSV, check
-          that it has the expected columns.
+          The page hit an unexpected error. Reloading usually fixes it; if you uploaded a CSV, check that it has the
+          expected columns.
         </p>
         <button
           type="button"

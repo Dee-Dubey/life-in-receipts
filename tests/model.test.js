@@ -9,7 +9,17 @@ describe("formatters", () => {
   });
   it("adds ordinal suffixes", () => {
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 30].map(ordinal)).toEqual([
-      "1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "30th",
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "23rd",
+      "30th",
     ]);
   });
 });
@@ -59,5 +69,56 @@ describe("generateDemoData", () => {
   it("covers all 12 months", () => {
     const { household } = generateDemoData();
     expect(new Set(household.map((t) => t.month)).size).toBe(12);
+  });
+});
+
+describe("mostFrequent", () => {
+  it("returns the most common item and breaks ties by first appearance", async () => {
+    const { mostFrequent } = await import("../src/lib/model.js");
+    const items = [{ k: "a" }, { k: "b" }, { k: "b" }, { k: "a" }, { k: "c" }];
+    expect(mostFrequent(items, (i) => i.k).k).toBe("a");
+    expect(mostFrequent([], (i) => i.k)).toBeNull();
+  });
+});
+
+describe("month rules", () => {
+  const txn = (category, amount = 10, day = 3) => ({
+    date: new Date(2018, 1, day, 12),
+    month: 1,
+    category,
+    subcategory: "",
+    note: "",
+    amount,
+    type: "Expense",
+  });
+
+  it("recognises 'festivals' spending regardless of letter case", () => {
+    const [, feb] = buildModel([txn("festivals", 50)], []);
+    expect(feb.mood).toBe("Celebratory");
+  });
+
+  it("marks a subscription-heavy month as Cozy and a transport-heavy month as On the Move", () => {
+    expect(buildModel([txn("subscription", 99)], [])[1].mood).toBe("Cozy");
+    expect(buildModel([txn("Transportation", 99)], [])[1].mood).toBe("On the Move");
+  });
+
+  it("gives a day with both a purchase and a track the crossover bonus", () => {
+    const song = (day) => ({
+      ts: new Date(2018, 1, day, 12),
+      month: 1,
+      track: "T",
+      artist: "A",
+      album: "",
+      msPlayed: 200000,
+      skipped: false,
+    });
+    // day 3 has 1 purchase + 1 track (2 + bonus 2 = 4); day 9 has 3 tracks (3)
+    const feb = buildModel([txn("Food", 10, 3)], [song(3), song(9), song(9), song(9)])[1];
+    expect(feb.definingDay.day).toBe(3);
+  });
+
+  it("ignores records that have no usable date", () => {
+    const months = buildModel([{ ...txn("Food"), date: null, month: null }], []);
+    expect(months.every((m) => m.txns.length === 0)).toBe(true);
   });
 });

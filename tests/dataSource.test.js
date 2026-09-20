@@ -9,7 +9,11 @@ function mockFetch(files) {
     const hit = Object.entries(files).find(([k]) => String(url).endsWith(k));
     if (!hit) return Promise.resolve({ ok: false, headers: new Headers(), text: () => Promise.resolve("") });
     const [, { body, type = "text/csv" }] = hit;
-    return Promise.resolve({ ok: true, headers: new Headers({ "content-type": type }), text: () => Promise.resolve(body) });
+    return Promise.resolve({
+      ok: true,
+      headers: new Headers({ "content-type": type }),
+      text: () => Promise.resolve(body),
+    });
   };
 }
 
