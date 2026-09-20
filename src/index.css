@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: #e4c73c;
+  color: #221f1a;
+}
+
+@layer components {
+  /* torn perforated receipt edge, top and bottom */
+  .receipt-edge {
+    height: 9px;
+    background: linear-gradient(135deg, #dad3bf 50%, transparent 50%) 0 0,
+      linear-gradient(45deg, #dad3bf 50%, transparent 50%) 0 0;
+    background-size: 11px 11px;
+    background-repeat: repeat-x;
+  }
+  .receipt-edge-bottom {
+    height: 9px;
+    background: linear-gradient(135deg, #dad3bf 50%, transparent 50%) 0 0,
+      linear-gradient(45deg, #dad3bf 50%, transparent 50%) 0 0;
+    background-size: 11px 11px;
+    background-repeat: repeat-x;
+    transform: scaleY(-1);
+  }
+
+  /* a receipt line item with a dotted leader filling the gap */
+  .line-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: 5px 0;
+  }
+  .line-item .filler {
+    flex: 1;
+    border-bottom: 1px dotted #c9bfa6;
+    margin-bottom: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
