@@ -11,6 +11,12 @@ html {
   color: #221f1a;
 }
 
+/* Visible keyboard focus everywhere (WCAG 2.4.7) */
+:focus-visible {
+  outline: 2px solid #2e4a6b;
+  outline-offset: 2px;
+}
+
 @layer components {
   /* torn perforated receipt edge, top and bottom */
   .receipt-edge {
@@ -38,7 +44,7 @@ html {
   }
   .line-item .filler {
     flex: 1;
-    border-bottom: 1px dotted #c9bfa6;
+    border-bottom: 1px dotted #857b66;
     margin-bottom: 3px;
   }
 }
@@ -46,5 +52,11 @@ html {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

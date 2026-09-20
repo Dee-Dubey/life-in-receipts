@@ -1,9 +1,11 @@
 import { useMemo } from "react";
-import { correlation, ordinal } from "../lib/model.js";
+import { correlation, fmtINR, ordinal } from "../lib/model.js";
 
 export default function ConnectionsView({ months, flatTxns, flatSongs, onOpenMonth }) {
-  const xs = months.map((m) => m.totalSpent);
-  const ys = months.map((m) => m.lateNightFraction);
+  // useMemo now depends on `months` (stable) — the old code rebuilt these arrays every render,
+  // which made its useMemo useless.
+  const xs = useMemo(() => months.map((m) => m.totalSpent), [months]);
+  const ys = useMemo(() => months.map((m) => m.lateNightFraction), [months]);
   const r = useMemo(() => correlation(xs, ys), [xs, ys]);
   const maxSpend = Math.max(...xs, 1);
 
@@ -27,16 +29,19 @@ export default function ConnectionsView({ months, flatTxns, flatSongs, onOpenMon
   const definingDays = months.filter((m) => m.definingDay);
 
   return (
-    <section>
+    <section aria-labelledby="connections-heading">
       <div className="mb-4.5">
-        <h2 className="font-serif font-normal text-2xl">Where the patterns show up</h2>
+        <h1 id="connections-heading" className="font-serif font-normal text-2xl">
+          Where the patterns show up
+        </h1>
       </div>
 
       <div className="bg-paper border border-line rounded-md p-5 mb-5">
-        <h3 className="font-serif text-lg mb-2">Spending vs. late-night listening</h3>
+        <h2 className="font-serif text-lg mb-2">Spending vs. late-night listening</h2>
         <p className="text-inkSoft text-sm">{corrText}</p>
 
-        <div className="mt-3.5 space-y-2">
+        {/* Visual bars are decorative for assistive tech; the same numbers are in the table below. */}
+        <div className="mt-3.5 space-y-2" aria-hidden="true">
           {months.map((m) => {
             const spendPct = maxSpend ? Math.round((m.totalSpent / maxSpend) * 100) : 0;
             const nightPct = Math.round(m.lateNightFraction * 100);
@@ -54,12 +59,33 @@ export default function ConnectionsView({ months, flatTxns, flatSongs, onOpenMon
           })}
         </div>
 
-        <div className="flex gap-4.5 text-xs text-inkSoft mt-2.5">
+        <table className="sr-only">
+          <caption>Monthly spend and share of late-night listening</caption>
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Spent</th>
+              <th scope="col">Late-night listening share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((m) => (
+              <tr key={m.index}>
+                <th scope="row">{m.name}</th>
+                <td>{fmtINR(m.totalSpent)}</td>
+                <td>{Math.round(m.lateNightFraction * 100)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="flex flex-wrap gap-x-4.5 gap-y-1 text-xs text-inkSoft mt-2.5">
           <span className="inline-flex items-center gap-1.5">
-            <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampBlue" /> monthly spend
+            <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampBlue" aria-hidden="true" /> monthly spend (left bar)
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampRed" /> late-night listening share
+            <i className="w-2.5 h-2.5 rounded-full inline-block bg-stampRed" aria-hidden="true" /> late-night listening
+            share (right bar)
           </span>
         </div>
       </div>
@@ -68,22 +94,25 @@ export default function ConnectionsView({ months, flatTxns, flatSongs, onOpenMon
         <h2 className="font-serif font-normal text-2xl">Defining days</h2>
         <p className="text-inkSoft text-sm">The busiest crossover day in each chapter — jump straight in.</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+      <ul className="list-none p-0 m-0 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
         {definingDays.map((m) => (
-          <div
-            key={m.index}
-            onClick={() => onOpenMonth(m.index)}
-            className="bg-paper border border-line rounded-md p-3.5 cursor-pointer hover:border-ink"
-          >
-            <div className="font-serif text-base mb-1">
-              {m.name} {ordinal(m.definingDay.day)}
-            </div>
-            <div className="text-inkSoft text-sm">
-              {m.definingDay.txns.length} purchases · {m.definingDay.songs.length} tracks
-            </div>
-          </div>
+          <li key={m.index}>
+            {/* was a <div onClick>: not reachable by keyboard. A real button fixes that. */}
+            <button
+              type="button"
+              onClick={() => onOpenMonth(m.index)}
+              className="block w-full text-left bg-paper border border-lineStrong rounded-md p-3.5 hover:border-ink"
+            >
+              <span className="block font-serif text-base mb-1">
+                {m.name} {ordinal(m.definingDay.day)}
+              </span>
+              <span className="block text-inkSoft text-sm">
+                {m.definingDay.txns.length} purchases · {m.definingDay.songs.length} tracks
+              </span>
+            </button>
+          </li>
         ))}
-      </div>
+      </ul>
     </section>
   );
 }

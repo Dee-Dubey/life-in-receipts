@@ -1,69 +1,101 @@
-# Your Life, In Receipts — React + Vite + Tailwind
+# Your Life, In Receipts
 
-Same concept as the plain-HTML version, rebuilt as a proper Vite/React/Tailwind project.
+A year of household spending and a year of Spotify listening, read side by side and turned into
+**twelve monthly receipts** — what was bought, what was played, and the one day the two lined up.
 
-## Run it
+Frontend-only (React + Vite + Tailwind). No backend, no database, no API calls: everything is
+parsed and computed in the browser.
+
+- **Live demo:** https://life-in-receipts-ten.vercel.app/
+- **Repository:** https://github.com/dee-dubey/life-in-receipts
+
+## Quick start
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:5173
 ```
-
-Then open the local URL Vite prints (usually http://localhost:5173).
-
-To ship a static build (for Netlify/Vercel/GitHub Pages):
 
 ```bash
-npm run build
+npm run check      # lint + tests + production build in one go
+npm run build      # static output in dist/ — deploy that folder as-is
 ```
 
-Output goes to `dist/` — deploy that folder as-is, no server/backend needed.
+Requires Node 18+ (`.nvmrc` pins 20).
 
-## What's real and what's demo
+## Using the challenge dataset
 
-The app loads with **generated placeholder data** (see `src/lib/demoData.js`) purely so the UI
-is never empty. It is not your real dataset — go to the Home tab, upload your actual
-`Daily Household Transactions` CSV and your actual Spotify history CSV, then click
-**Build my story**. Everything (chapters, search, correlation) recomputes from whatever you
-uploaded.
-
-Expected columns (case-insensitive, extra/missing columns tolerated):
-- **Household CSV**: `Date` (`DD/MM/YYYY`), `Category`, `Subcategory`, `Note`, `Amount`,
-  `Income/Expense`
-- **Spotify CSV**: `ts` (`M/D/YYYY H:MM`), `track_name`, `artist_name`, `album_name`,
-  `ms_played`, `skipped`
-
-## Structure
+Copy the organizer-provided CSVs into `public/data/` with these names:
 
 ```
+public/data/household.csv   # Daily Household Transactions
+public/data/spotify.csv     # Spotify listening history
+```
+
+They are fetched as static files on start-up. If neither file exists the app falls back to
+clearly-labelled generated sample data (the Home screen states which source is active). Visitors can
+also upload their own CSVs at any time from the Home tab.
+
+Expected columns (case-insensitive; extra or missing columns are tolerated):
+
+| File      | Columns |
+|-----------|---------|
+| Household | `Date` (`DD/MM/YYYY [HH:MM:SS]`), `Category`, `Subcategory`, `Note`, `Amount`, `Income/Expense` |
+| Spotify   | `ts` (`M/D/YYYY H:MM` **or** ISO `YYYY-MM-DD HH:MM:SS`), `track_name`, `artist_name`, `album_name`, `ms_played`, `skipped` |
+
+A UTF-8 BOM, quoted fields and embedded commas are handled.
+
+## Features
+
+- **Home** — load data, see totals, understand how the grouping works.
+- **Chapters** — twelve receipt cards (spend, top category / track / artist, mood).
+- **Chapter dialog** — narrative sentence, category breakdown, "defining day", full purchase and track lists.
+- **Search** — one box across purchases and tracks, with type and month filters.
+- **Connections** — monthly spend vs. late-night listening (Pearson *r*) and jump links to each defining day.
+
+## How the two datasets are joined
+
+Two independent datasets rarely share real calendar dates, so records are grouped by **month of the
+year**. Within each month the busiest day-of-month (by combined purchase + track count) becomes that
+chapter's "defining day".
+
+## Accessibility
+
+- Semantic landmarks, skip link, one `h1` per view, `aria-current` on the active tab.
+- Chapter dialog: `role="dialog"`, focus moves in, Tab is trapped, Escape closes, focus returns to the trigger, page scroll locked.
+- Every control is a real `<button>` / labelled form control; toggle chips use `aria-pressed`.
+- Status messages and search result counts are announced (`role="status"`).
+- The spend / late-night chart has an equivalent data table for screen readers.
+- Text colours meet WCAG AA (`inkSoft` on the canvas background is 5.0 : 1; form-control borders ≥ 3 : 1).
+- Visible focus ring, 44 px touch targets, `prefers-reduced-motion` respected.
+- Automated: `axe-core` runs against every view and the dialog in `npm test`; `eslint-plugin-jsx-a11y` runs in `npm run lint`.
+
+## Performance
+
+- Plain-loop parsing; the search index (lower-cased text + sort key) is built once per dataset and
+  typing uses `useDeferredValue`, so filtering stays responsive on very large files.
+- Rendered lists are capped (40 rows per list in the dialog, 150 in search) with a "+N more" note;
+  totals always reflect the full dataset.
+- No web fonts, no images, no third-party runtime requests. Production JS ≈ 56 kB gzipped.
+
+## Project structure
+
+```
+public/data/          challenge CSVs go here (household.csv, spotify.csv)
 src/
-  lib/
-    csv.js        — CSV parsing + date parsing for both formats
-    demoData.js    — synthetic placeholder generator
-    model.js       — groups records into 12 month "chapters", computes mood/narrative/
-                     correlation/defining-day
-  components/
-    Header.jsx
-    HomeView.jsx
-    ChaptersView.jsx / ReceiptCard.jsx
-    ChapterModal.jsx
-    SearchView.jsx
-    ConnectionsView.jsx
-  App.jsx          — state + routing between the four tabs
+  App.jsx             state, data loading, tab switching
+  lib/csv.js          CSV + date parsing for both formats
+  lib/dataSource.js   loads the bundled CSVs from public/data
+  lib/demoData.js     seeded, deterministic sample-data generator
+  lib/model.js        month grouping, mood, narrative, correlation, defining day
+  components/         Header, HomeView, ChaptersView, ReceiptCard, ChapterModal,
+                      SearchView, ConnectionsView, ErrorBoundary
+tests/                Vitest unit tests + axe accessibility tests
+.github/workflows/    CI: lint, test, build
 ```
 
-## Design notes
+## Deploying
 
-Records are grouped by **month of the year**, not exact calendar date, since two independent
-datasets rarely share real overlapping dates. Within each month, the busiest single
-day-of-month (by combined purchase + track count) becomes that month's "defining day" — the
-closest thing to a real crossover moment between the two datasets.
-
-The whole UI is styled as literal paper receipts — dotted line-item leaders, a torn perforated
-edge (CSS gradient trick in `src/index.css`), monospace for "printed" data — because the brief's
-own title, *In Receipts*, is the subject matter. The one human-voiced sentence per month (the
-narrative) is set in a serif face to separate "what was counted" from "what it means."
-
-Performance: parsing and aggregation are plain loops, fine for tens of thousands of rows.
-Rendered lists inside a month and in search are capped (40 / 150 rows) with a "+N more" note so
-the DOM stays fast even on very large files — totals and counts always reflect the full dataset.
+`vite.config.js` sets `base: "./"`, so the `dist/` folder works on Netlify, Vercel and GitHub Pages
+(including sub-paths) with no extra configuration. Build command: `npm run build`, output
+directory: `dist`. The live demo above is deployed on Vercel.

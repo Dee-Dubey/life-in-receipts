@@ -28,22 +28,33 @@ const DEMO_TRACKS = [
   { artist: "Emeli Sandé", track: "Heaven" },
 ];
 
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+// Small seeded PRNG (mulberry32) so the sample data is identical on every load —
+// stable screenshots, reproducible tests, no "the page changed on refresh" surprises.
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return function rng() {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
-export function generateDemoData() {
+export function generateDemoData(seed = 2018) {
+  const rng = makeRng(seed);
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)];
   const household = [];
   const spotify = [];
 
   for (let m = 0; m < 12; m++) {
-    const txnCount = 5 + Math.floor(Math.random() * 5);
+    const txnCount = 5 + Math.floor(rng() * 5);
     for (let i = 0; i < txnCount; i++) {
       const c = pick(DEMO_CATS);
-      const day = 1 + Math.floor(Math.random() * 27);
-      const hour = Math.floor(Math.random() * 24);
-      const amount = Math.round(20 + Math.random() * 900);
-      const date = new Date(2018, m, day, hour, Math.floor(Math.random() * 60));
+      const day = 1 + Math.floor(rng() * 27);
+      const hour = Math.floor(rng() * 24);
+      const amount = Math.round(20 + rng() * 900);
+      const date = new Date(2018, m, day, hour, Math.floor(rng() * 60));
       household.push({
         date,
         month: m,
@@ -56,13 +67,13 @@ export function generateDemoData() {
       });
     }
 
-    const songCount = 8 + Math.floor(Math.random() * 10);
+    const songCount = 8 + Math.floor(rng() * 10);
     for (let j = 0; j < songCount; j++) {
       const t = pick(DEMO_TRACKS);
-      const day = 1 + Math.floor(Math.random() * 27);
-      const hour = Math.floor(Math.random() * 24);
-      const ms = 30000 + Math.floor(Math.random() * 220000);
-      const ts = new Date(2018, m, day, hour, Math.floor(Math.random() * 60));
+      const day = 1 + Math.floor(rng() * 27);
+      const hour = Math.floor(rng() * 24);
+      const ms = 30000 + Math.floor(rng() * 220000);
+      const ts = new Date(2018, m, day, hour, Math.floor(rng() * 60));
       spotify.push({
         ts,
         month: m,

@@ -17,7 +17,9 @@ export const CATEGORY_MOOD = {
 };
 
 // Minimal RFC4180-ish CSV parser: handles quoted fields and embedded commas.
-export function parseCSV(text) {
+export function parseCSV(input) {
+  // Excel / Kaggle exports often start with a BOM, which would corrupt the first header name.
+  const text = String(input || "").replace(/^\uFEFF/, "");
   const rows = [];
   let row = [];
   let field = "";
@@ -106,6 +108,22 @@ export function parseMDY(str) {
   return new Date(yr, mon - 1, day, hh, mm, 0);
 }
 
+// "2013-07-08 02:44:34" or "2013-07-08T02:44:34Z" (ISO-like, used by some Spotify exports)
+export function parseISO(str) {
+  if (!str) return null;
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(str.trim());
+  if (!m) return null;
+  const [, yr, mon, day, hh = "0", mm = "0", ss = "0"] = m;
+  if (!Number(mon) || !Number(day)) return null;
+  return new Date(Number(yr), Number(mon) - 1, Number(day), Number(hh), Number(mm), Number(ss));
+}
+
+// Spotify timestamps can be "M/D/YYYY H:MM" or ISO — accept both.
+export function parseSpotifyDate(str) {
+  if (!str) return null;
+  return /^\d{4}-/.test(str.trim()) ? parseISO(str) : parseMDY(str);
+}
+
 export function parseHouseholdCSV(text) {
   const rows = parseCSV(text);
   if (!rows.length) return [];
@@ -156,7 +174,7 @@ export function parseSpotifyCSV(text) {
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r];
     if (!row || row.length < 2) continue;
-    const ts = iTs >= 0 ? parseMDY(row[iTs]) : null;
+    const ts = iTs >= 0 ? parseSpotifyDate(row[iTs]) : null;
     const track = iTrack >= 0 ? (row[iTrack] || "").trim() : "";
     if (!track) continue;
     const ms = iMs >= 0 ? parseFloat(row[iMs]) : 0;
